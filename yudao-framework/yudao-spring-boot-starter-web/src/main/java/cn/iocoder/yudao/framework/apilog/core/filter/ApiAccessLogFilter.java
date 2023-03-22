@@ -2,11 +2,12 @@ package cn.iocoder.yudao.framework.apilog.core.filter;
 
 import cn.hutool.core.exceptions.ExceptionUtil;
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.servlet.ServletUtil;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.apilog.core.service.ApiAccessLogFrameworkService;
-import cn.iocoder.yudao.framework.apilog.core.service.dto.ApiAccessLogCreateDTO;
+import cn.iocoder.yudao.framework.apilog.core.service.dto.ApiAccessLogCreateReqDTO;
 import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
 import cn.iocoder.yudao.framework.web.config.WebProperties;
 import cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils;
@@ -25,6 +26,8 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 
+import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.*;
+
 /**
  * API 访问日志 Filter
  *
@@ -42,7 +45,8 @@ public class ApiAccessLogFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // 只过滤 API 请求的地址
-        return !request.getRequestURI().startsWith(webProperties.getApiPrefix());
+        return !StrUtil.startWithAny(request.getRequestURI(), webProperties.getAppApi().getPrefix(),
+                webProperties.getAppApi().getPrefix());
     }
 
     @Override
@@ -68,20 +72,20 @@ public class ApiAccessLogFilter extends OncePerRequestFilter {
 
     private void createApiAccessLog(HttpServletRequest request, Date beginTime,
                                     Map<String, String> queryString, String requestBody, Exception ex) {
-        ApiAccessLogCreateDTO accessLog = new ApiAccessLogCreateDTO();
+        ApiAccessLogCreateReqDTO accessLog = new ApiAccessLogCreateReqDTO();
         try {
             this.buildApiAccessLogDTO(accessLog, request, beginTime, queryString, requestBody, ex);
             apiAccessLogFrameworkService.createApiAccessLogAsync(accessLog);
         } catch (Throwable th) {
-            log.error("[createApiAccessLog][url({}) log({}) 发生异常]", request.getRequestURI(), JsonUtils.toJsonString(accessLog), th);
+            log.error("[createApiAccessLog][url({}) log({}) 发生异常]", request.getRequestURI(), toJsonString(accessLog), th);
         }
     }
 
-    private void buildApiAccessLogDTO(ApiAccessLogCreateDTO accessLog, HttpServletRequest request, Date beginTime,
+    private void buildApiAccessLogDTO(ApiAccessLogCreateReqDTO accessLog, HttpServletRequest request, Date beginTime,
                                       Map<String, String> queryString, String requestBody, Exception ex) {
         // 处理用户信息
         accessLog.setUserId(WebFrameworkUtils.getLoginUserId(request));
-        accessLog.setUserType(WebFrameworkUtils.getUserType(request));
+        accessLog.setUserType(WebFrameworkUtils.getLoginUserType(request));
         // 设置访问结果
         CommonResult<?> result = WebFrameworkUtils.getCommonResult(request);
         if (result != null) {
@@ -99,7 +103,7 @@ public class ApiAccessLogFilter extends OncePerRequestFilter {
         accessLog.setApplicationName(applicationName);
         accessLog.setRequestUrl(request.getRequestURI());
         Map<String, Object> requestParams = MapUtil.<String, Object>builder().put("query", queryString).put("body", requestBody).build();
-        accessLog.setRequestParams(JsonUtils.toJsonString(requestParams));
+        accessLog.setRequestParams(toJsonString(requestParams));
         accessLog.setRequestMethod(request.getMethod());
         accessLog.setUserAgent(ServletUtils.getUserAgent(request));
         accessLog.setUserIp(ServletUtil.getClientIP(request));

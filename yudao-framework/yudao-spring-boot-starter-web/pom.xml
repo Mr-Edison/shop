@@ -11,8 +11,8 @@
     <artifactId>yudao-spring-boot-starter-web</artifactId>
     <packaging>jar</packaging>
 
-    <name>${artifactId}</name>
-    <description>用户的认证、权限的校验</description>
+    <name>${project.artifactId}</name>
+    <description>Web 框架，全局异常、API 日志等</description>
     <url>https://github.com/YunaiV/ruoyi-vue-pro</url>
 
     <dependencies>

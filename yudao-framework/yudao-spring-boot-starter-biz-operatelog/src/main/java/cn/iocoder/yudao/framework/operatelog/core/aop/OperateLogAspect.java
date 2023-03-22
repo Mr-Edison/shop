@@ -4,14 +4,15 @@ import cn.hutool.core.exceptions.ExceptionUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.servlet.ServletUtil;
+import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
+import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.operatelog.core.annotations.OperateLog;
 import cn.iocoder.yudao.framework.operatelog.core.dto.OperateLogCreateReqDTO;
 import cn.iocoder.yudao.framework.operatelog.core.enums.OperateTypeEnum;
 import cn.iocoder.yudao.framework.operatelog.core.service.OperateLogFrameworkService;
-import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
-import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
-import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils;
 import com.google.common.collect.Maps;
 import io.swagger.annotations.Api;
@@ -22,6 +23,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.multipart.MultipartFile;
@@ -81,6 +83,12 @@ public class OperateLogAspect {
     }
 
     private Object around0(ProceedingJoinPoint joinPoint, OperateLog operateLog, ApiOperation apiOperation) throws Throwable {
+        // 目前，只有管理员，才记录操作日志！所以非管理员，直接调用，不进行记录
+        Integer userType = WebFrameworkUtils.getLoginUserType();
+        if (!Objects.equals(userType, UserTypeEnum.ADMIN.getValue())) {
+            return joinPoint.proceed();
+        }
+
         // 记录开始时间
         Date startTime = new Date();
         try {
@@ -149,6 +157,7 @@ public class OperateLogAspect {
 
     private static void fillUserFields(OperateLogCreateReqDTO operateLogDTO) {
         operateLogDTO.setUserId(WebFrameworkUtils.getLoginUserId());
+        operateLogDTO.setUserType(WebFrameworkUtils.getLoginUserType());
     }
 
     private static void fillModuleFields(OperateLogCreateReqDTO operateLogDTO,
@@ -348,7 +357,8 @@ public class OperateLogAspect {
         // obj
         return object instanceof MultipartFile
                 || object instanceof HttpServletRequest
-                || object instanceof HttpServletResponse;
+                || object instanceof HttpServletResponse
+                || object instanceof BindingResult;
     }
 
 }

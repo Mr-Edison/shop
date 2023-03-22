@@ -1,15 +1,20 @@
 package cn.iocoder.yudao.framework.security.config;
 
 import cn.iocoder.yudao.framework.security.core.aop.PreAuthenticatedAspect;
-import cn.iocoder.yudao.framework.security.core.filter.JwtAuthenticationTokenFilter;
+import cn.iocoder.yudao.framework.security.core.authentication.MultiUserDetailsAuthenticationProvider;
+import cn.iocoder.yudao.framework.security.core.context.TransmittableThreadLocalSecurityContextHolderStrategy;
+import cn.iocoder.yudao.framework.security.core.filter.JWTAuthenticationTokenFilter;
 import cn.iocoder.yudao.framework.security.core.handler.AccessDeniedHandlerImpl;
 import cn.iocoder.yudao.framework.security.core.handler.AuthenticationEntryPointImpl;
 import cn.iocoder.yudao.framework.security.core.handler.LogoutSuccessHandlerImpl;
 import cn.iocoder.yudao.framework.security.core.service.SecurityAuthFrameworkService;
+import cn.iocoder.yudao.framework.web.config.WebProperties;
 import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
+import org.springframework.beans.factory.config.MethodInvokingFactoryBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -17,6 +22,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 /**
  * Spring Security 自动配置类，主要用于相关组件的配置
@@ -26,7 +32,7 @@ import javax.annotation.Resource;
  *
  * @author 芋道源码
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SecurityProperties.class)
 public class YudaoSecurityAutoConfiguration {
 
@@ -34,7 +40,7 @@ public class YudaoSecurityAutoConfiguration {
     private SecurityProperties securityProperties;
 
     /**
-     * 处理用户未登陆拦截的切面的 Bean
+     * 处理用户未登录拦截的切面的 Bean
      */
     @Bean
     public PreAuthenticatedAspect preAuthenticatedAspect() {
@@ -61,8 +67,8 @@ public class YudaoSecurityAutoConfiguration {
      * 退出处理类 Bean
      */
     @Bean
-    public LogoutSuccessHandler logoutSuccessHandler(SecurityAuthFrameworkService securityFrameworkService) {
-        return new LogoutSuccessHandlerImpl(securityProperties, securityFrameworkService);
+    public LogoutSuccessHandler logoutSuccessHandler(MultiUserDetailsAuthenticationProvider authenticationProvider) {
+        return new LogoutSuccessHandlerImpl(securityProperties, authenticationProvider);
     }
 
     /**
@@ -80,9 +86,32 @@ public class YudaoSecurityAutoConfiguration {
      * Token 认证过滤器 Bean
      */
     @Bean
-    public JwtAuthenticationTokenFilter authenticationTokenFilter(SecurityAuthFrameworkService securityFrameworkService,
+    public JWTAuthenticationTokenFilter authenticationTokenFilter(MultiUserDetailsAuthenticationProvider authenticationProvider,
                                                                   GlobalExceptionHandler globalExceptionHandler) {
-        return new JwtAuthenticationTokenFilter(securityProperties, securityFrameworkService, globalExceptionHandler);
+        return new JWTAuthenticationTokenFilter(securityProperties, authenticationProvider, globalExceptionHandler);
+    }
+
+    /**
+     * 身份验证的 Provider Bean，通过它实现账号 + 密码的认证
+     */
+    @Bean
+    public MultiUserDetailsAuthenticationProvider authenticationProvider(
+            List<SecurityAuthFrameworkService> securityFrameworkServices,
+            WebProperties webProperties, PasswordEncoder passwordEncoder) {
+        return new MultiUserDetailsAuthenticationProvider(securityFrameworkServices, webProperties, passwordEncoder);
+    }
+
+    /**
+     * 声明调用 {@link SecurityContextHolder#setStrategyName(String)} 方法，
+     * 设置使用 {@link TransmittableThreadLocalSecurityContextHolderStrategy} 作为 Security 的上下文策略
+     */
+    @Bean
+    public MethodInvokingFactoryBean securityContextHolderMethodInvokingFactoryBean() {
+        MethodInvokingFactoryBean methodInvokingFactoryBean = new MethodInvokingFactoryBean();
+        methodInvokingFactoryBean.setTargetClass(SecurityContextHolder.class);
+        methodInvokingFactoryBean.setTargetMethod("setStrategyName");
+        methodInvokingFactoryBean.setArguments(TransmittableThreadLocalSecurityContextHolderStrategy.class.getName());
+        return methodInvokingFactoryBean;
     }
 
 }

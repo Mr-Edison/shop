@@ -3,6 +3,7 @@ package cn.iocoder.yudao.framework.mybatis.core.dataobject;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -10,9 +11,11 @@ import java.util.Date;
 
 /**
  * 基础实体对象
+ *
+ * @author 芋道源码
  */
 @Data
-public class BaseDO implements Serializable {
+public abstract class BaseDO implements Serializable {
 
     /**
      * 创建时间
